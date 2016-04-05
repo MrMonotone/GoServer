@@ -67,12 +67,12 @@ var start = function () {
             if (!user) {
                 console.log("Username not found.");
                 return done(null, false, { message: 'Unknown username.' });
-            }
+            }            
             bcrypt.compare(password, user.password, function (err, res) {
                 if (!res)
                     return(done(new Error("Wrong password.")));
             });
-            console.log("Authenticated!");
+            console.log("Authenticated!"); // TODO THIS IS BAD authenticates users before checking there pass
             return done(null, user);
         });
     }));
@@ -93,11 +93,18 @@ var start = function () {
     app.set('view engine', "jade");
     app.engine('jade', require('jade').__express);
     
-    app.use(morgan());
+    app.use(morgan("combined"));
     app.use(cookieParser());
-    app.use(bodyParser());
+    app.use(bodyParser.urlencoded({ /// ??? Profit Fixes body to return stuff???
+        extended: true
+    }));
+    app.use(bodyParser.json());
     app.use(methodOverride());
-    app.use(session({ secret: "algorithm demon" }));
+    app.use(session({ 
+        secret: "algorithm demon",
+        resave: false, // TODO: Do more research to figure out which to use.
+        saveUninitialized: false // TODO: Do more research to figure out which to use.
+    }));
     app.use(passport.initialize());
     app.use(passport.session());
     app.use(express.static(__dirname + '/public'));
@@ -121,7 +128,9 @@ var start = function () {
                 return res.redirect('/login');
             }
             req.logIn(user, function (err) {
-                if (err) { return next(err); }
+                if (err) {
+                    return next(err); //This never gets called because the authentication returns before hashes are compared
+                }
                 return res.redirect('/lobby');
             });
         })(req, res, next);
@@ -136,9 +145,7 @@ var start = function () {
     app.post('/reg', function (req, res, next) {
         // req.body.[field] contains the post information from the form
         // see for yourself and uncomment below
-
         // console.log(req.body);
-
         // if the two typed passwords match
         if (req.body.password === req.body.repassword) {
             // find if username is taken
@@ -175,7 +182,8 @@ var start = function () {
     var numSockets = 0;
 
     // turn off debugging
-    io.set('log level', 0);
+    // TODO: See https://github.com/socketio/socket.io#debug--logging
+    //io.set('log level', 0);
 
     io.sockets.on('connection', function (socket) {
 
